@@ -2,6 +2,7 @@ import express, { json } from 'express'
 import mongoose from 'mongoose'
 import dotenv from 'dotenv/config.js'
 import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
 
 const app = express()
 
@@ -60,7 +61,62 @@ app.post("/auth/register", async (req, res)=>{
     //Create password
     const salt = await bcrypt.genSalt(12)
     const passwordHash= await bcrypt.hash(password, salt)
-    res.status(200).json({msg:"Dados recebidos com sucesso"})
+    
+    //Create user
+    const user = new User({
+        name,
+        email,
+        password: passwordHash
+    })
+    try {
+        
+        await user.save()
+        res.status(200).json({msg:"Dados recebidos com sucesso"})
 
+    } catch (error) {
+        console.log(error)
+        res.status(200).json({msg:"Ocorreu um erro no servidor. Tente novamente mais tarde!"})
+    }
 })
+
+//Login User
+app.post("/auth/login", async (req, res)=>{
+    const {email, password} = req.body
+
+    if(!email){
+        return res.status(422).json({msg:"O email é obrigatório"})
+    }
+    if(!password){
+        return  res.status(422).json({msg:"A senha é obrigatória"})
+    }
+    
+    //Check if user exist
+    const user = await User.findOne({email:email})
+    if(!user){
+      return  res.status(422).json({msg:"Usuário não encontrado!"})
+    }
+    
+    //Check if password match
+    const confirmPassword = await bcrypt.compare(password, user.password)
+    if(!confirmPassword){
+      return  res.status(422).json({msg:"Usuário não encontrado!"})
+    }
+
+    try {
+       const secret = process.env.SECRET
+
+       const token = jwt.sign(
+        {
+            id: user.id,
+        },
+        secret,
+       )
+
+       res.status(200).json({msg:"Autenticação realizada com sucesso", token})
+    } catch (error) {
+        console.log(error)
+        res.status(422).json({msg: "Ocorreu um erro no servidor. Tente novamente mais tarde!"})
+    }
+})
+
 app.listen(3000, ()=>(console.log("Servidor rodando http://localhost:3000")))
