@@ -31,6 +31,39 @@ app.get("/", (req, res)=>{
     res.status(200).json({msg:"Bem-Vindos a minha API"})
 })
 
+//Privacy route
+
+app.get("/user/:id",checkToken, async (req, res)=>{
+    let id = req.params.id
+
+    //check if user exist
+    const user = await User.findById(id, '-password')
+
+    if(!user){
+        return res.status(404).json("Usuário não encontrado")
+    }
+    return res.status(200).json({user})
+})
+
+function checkToken(req, res, next){
+
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(" ")[1]
+
+    if(!token){
+        res.status(404).json({msg:"Acesso negado"})
+    }
+    
+    try {
+        const secret = process.env.SECRET
+        jwt.verify(token, secret)
+        res.status(200).json({msg:"Acesso liberado"})
+
+    } catch (error) {
+        res.status(404).json({msg:"Token incorreto"})
+    }
+}
+
 //Register User
 app.post("/auth/register", async (req, res)=>{
     const {name, email, password, confirmPassword} = req.body
